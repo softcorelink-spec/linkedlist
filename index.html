@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>보물 탐험대 - 연결 리스트 시뮬레이터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://cdn.jsdelivr.net/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #fefce8;
+      color: #2d2211;
+      user-select: none;
+    }
+
+    .font-jua {
+      font-family: 'Jua', sans-serif;
+    }
+
+    .sticker-card {
+      border: 3px solid #2d2211;
+      box-shadow: 4px 4px 0px #2d2211;
+    }
+
+    /* Node card basic styling */
+    .slot-card {
+      border: 2.5px solid #2d2211;
+      box-shadow: 3px 3px 0px #2d2211;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Disconnected Shake Animation */
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+    .shake-anim {
+      animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    /* Pulse Glow Animation */
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 3px rgba(16, 185, 129, 0.6)); }
+      50% { transform: scale(1.03); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.9)); }
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 1.6s infinite ease-in-out;
+    }
+
+    @keyframes bounce-short {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    .animate-bounce-short {
+      animation: bounce-short 1.2s infinite ease-in-out;
+    }
+
+    /* SVG Curve line animations */
+    .chain-svg-line {
+      transition: all 0.4s ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-screen p-3 bg-[#fefce8] flex flex-col justify-between overflow-hidden">
+
+  <!-- TOP HEADER BANNER -->
+  <header class="w-full mb-2 flex justify-between items-center bg-[#fffbef] p-2.5 px-4 rounded-2xl sticker-card shrink-0">
+    <div class="flex items-center gap-2.5">
+      <span class="text-2xl">🏴‍☠️</span>
+      <div>
+        <h1 class="text-base sm:text-lg font-jua text-[#2d2211] tracking-tight leading-tight">
+          보물 탐험대: 연결 리스트 (Linked List) 시뮬레이터
+        </h1>
+        <p class="text-[11px] font-bold text-amber-900 leading-none mt-0.5">
+          "노드의 물리적 위치는 가만히 고정! 오직 link(포인터) 화살표 번호만 교체된다!"
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 text-xs font-black">
+      <span class="bg-amber-200 px-2.5 py-1 rounded-xl border border-amber-950 text-amber-950 font-jua">
+        총 5개 고정 노드 (0번~4번)
+      </span>
+      <button onclick="resetGame()" class="px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-xl border-2 border-amber-950 font-jua transition-all flex items-center gap-1 shadow-sm active:translate-y-0.5">
+        <i class="fa-solid fa-rotate-right"></i> 초기화
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD -->
+  <main class="w-full flex-1 grid grid-cols-12 gap-3 min-h-0 overflow-hidden">
+    
+    <!-- LEFT COLUMN: MAP BOARD & CONTROL LOG (5 Columns) -->
+    <section class="col-span-5 flex flex-col gap-2 min-h-0 h-full">
+      
+      <!-- MAP BOARD -->
+      <div class="bg-[#fffbef] rounded-2xl p-3 sticker-card flex-1 flex flex-col justify-between relative overflow-hidden min-h-0">
+        <div class="flex justify-between items-center mb-1 shrink-0">
+          <span class="text-xs font-jua text-emerald-950 bg-emerald-200 px-2.5 py-0.5 rounded-lg border border-emerald-950">
+            🗺️ 탐험 거점 지도 (Waypoints Map)
+          </span>
+          <span class="text-[10px] font-bold text-amber-900">
+            목적지: 4번 보물상자 (link = -1)
+          </span>
+        </div>
+
+        <!-- MAP CANVAS CONTAINER -->
+        <div id="map-board-wrapper" class="relative w-full flex-1 bg-emerald-100/70 rounded-xl border-2 border-[#2d2211] p-2 shadow-inner overflow-hidden flex flex-col justify-between">
+          <svg id="svg-map-overlay" class="absolute inset-0 w-full h-full pointer-events-none z-10">
+            <defs>
+              <marker id="arrow-map" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+              </marker>
+              <marker id="arrow-blocked" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626" />
+              </marker>
+            </defs>
+            <g id="svg-map-paths"></g>
+          </svg>
+
+          <!-- FIXED MAP NODES & OBSTACLES GRID -->
+          <div class="grid grid-cols-3 gap-2.5 h-full relative z-20">
+            
+            <!-- Row 1: Node 0 (출발지) -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div id="map-node-0" class="bg-white border-2 border-amber-600 rounded-xl p-2 shadow text-center w-full relative">
+                <span class="absolute -top-2.5 left-2 bg-amber-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold">0번 노드</span>
+                <div class="text-lg">🚩</div>
+                <div class="font-jua text-xs text-amber-950">출발지</div>
+                <div id="map-link-0" class="text-[9px] font-mono font-black text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 mt-0.5">link: -1</div>
+              </div>
+            </div>
+
+            <!-- Obstacle 1: 거대한 바위 -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div class="bg-red-100/90 border-2 border-red-400 rounded-xl p-1.5 text-center shadow-sm">
+                <div class="text-2xl animate-bounce-short">🪨</div>
+                <div class="text-[9px] font-black text-red-900">거대한 바위</div>
+              </div>
+            </div>
+
+            <!-- Node 1: 다이아몬드 -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div id="map-node-1" class="bg-white border-2 border-blue-500 rounded-xl p-2 shadow text-center w-full relative">
+                <span class="absolute -top-2.5 left-2 bg-blue-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold">1번 노드</span>
+                <div class="text-lg">💎</div>
+                <div class="font-jua text-xs text-blue-950">다이아몬드</div>
+                <div id="map-link-1" class="text-[9px] font-mono font-black text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 mt-0.5">link: -1</div>
+              </div>
+            </div>
+
+            <!-- Row 2: Node 3 (황금 열쇠) -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div id="map-node-3" class="bg-white border-2 border-yellow-500 rounded-xl p-2 shadow text-center w-full relative">
+                <span class="absolute -top-2.5 left-2 bg-yellow-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold">3번 노드</span>
+                <div class="text-lg">🌟</div>
+                <div class="font-jua text-xs text-yellow-950">황금 열쇠</div>
+                <div id="map-link-3" class="text-[9px] font-mono font-black text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 mt-0.5">link: -1</div>
+              </div>
+            </div>
+
+            <!-- Obstacle 2: 무서운 몬스터 -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div class="bg-red-100/90 border-2 border-red-400 rounded-xl p-1.5 text-center shadow-sm">
+                <div class="text-2xl animate-bounce-short">👾</div>
+                <div class="text-[9px] font-black text-red-900">무서운 몬스터</div>
+              </div>
+            </div>
+
+            <!-- Node 2: 사파이어 -->
+            <div class="col-span-1 flex items-center justify-center">
+              <div id="map-node-2" class="bg-white border-2 border-purple-500 rounded-xl p-2 shadow text-center w-full relative">
+                <span class="absolute -top-2.5 left-2 bg-purple-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold">2번 노드</span>
+                <div class="text-lg">🔷</div>
+                <div class="font-jua text-xs text-purple-950">사파이어</div>
+                <div id="map-link-2" class="text-[9px] font-mono font-black text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200 mt-0.5">link: -1</div>
+              </div>
+            </div>
+
+            <!-- Row 3: Node 4 (전설의 보물상자 / Goal) -->
+            <div class="col-span-3 flex items-center justify-center pt-1">
+              <div id="map-node-4" class="bg-amber-200 border-2 border-emerald-600 rounded-xl p-2 shadow text-center w-48 relative">
+                <span class="absolute -top-2.5 left-2 bg-emerald-700 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold">4번 노드 (Goal)</span>
+                <div class="text-xl">👑</div>
+                <div class="font-jua text-xs text-amber-950">전설의 보물상자</div>
+                <div id="map-link-4" class="text-[9px] font-mono font-black text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300 mt-0.5">link: -1</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ANIMATED ROBOT MARKER -->
+          <div id="robot-marker" class="absolute z-30 transition-all duration-500 ease-in-out transform -translate-x-1/2 -translate-y-1/2 pointer-events-none hidden">
+            <div class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap animate-bounce-short flex items-center gap-1 border border-amber-950">
+              <span>🤖</span> 탐험 로봇
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RUN BUTTON & INSTRUCTION -->
+        <button onclick="runTraversal()" class="mt-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-jua text-xs sm:text-sm rounded-xl border-2 border-amber-950 shadow-[3px_3px_0px_#2d2211] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 shrink-0">
+          <i class="fa-solid fa-play"></i>
+          <span>▶️ 연결 리스트 경로 탐험 실행하기</span>
+        </button>
+      </div>
+
+      <!-- TERMINAL CONSOLE -->
+      <div class="bg-amber-950 text-amber-100 p-2.5 rounded-2xl sticker-card font-mono text-[11px] space-y-1 shrink-0">
+        <div class="flex justify-between items-center text-amber-400 font-bold border-b border-amber-800 pb-1">
+          <span>파이썬 연결 상태</span>
+          <span id="head-badge" class="text-[10px] bg-red-500 text-white px-2 py-0.2 rounded-full font-sans font-bold">head = 0번</span>
+        </div>
+        <p id="code-chain-display" class="text-yellow-300 font-black text-[11px] leading-tight truncate">
+          head(0번) ➔ -1 (연결된 노드 없음)
+        </p>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: FIXED REAL-TIME CHAIN TRACK & POINTER CONTROLS (7 Columns) -->
+    <section class="col-span-7 flex flex-col gap-2 min-h-0 h-full">
+      
+      <!-- REAL-TIME CHAIN TRACK WITH 5 FIXED SLOTS -->
+      <div class="bg-[#fffbef] rounded-2xl p-2.5 sticker-card flex flex-col justify-between gap-1 shrink-0">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <span class="bg-blue-600 text-white font-mono font-black px-2 py-0.5 rounded-lg border border-amber-950 text-[11px]">
+              head = 0번
+            </span>
+            <span class="text-xs font-jua text-amber-950">
+              🔗 실시간 순서 체인 (고정 포인터 배선판)
+            </span>
+          </div>
+          <span id="chain-status-badge" class="text-[10px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-950">
+            상태 정상
+          </span>
+        </div>
+
+        <!-- WARNING BANNER FOR PENDING ACTIONS -->
+        <div id="unreachable-warning-bar" class="hidden bg-red-100 border-2 border-red-500 rounded-lg p-1.5 px-2 text-[10px] font-black text-red-950 flex justify-between items-center animate-pulse">
+          <span id="warning-msg-text">⚠️ 노드의 위치 정돈이 필요합니다!</span>
+          <span class="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-sans font-bold">
+            버튼을 눌러 위치를 정돈하세요 ⬇️
+          </span>
+        </div>
+
+        <!-- FIXED 5-SLOT CONTAINER WITH SVG CURVED ARROW OVERLAY -->
+        <div id="chain-track-wrapper" class="relative bg-amber-100/90 rounded-xl border-2 border-[#2d2211] p-3 pt-8 pb-8 min-h-[185px] flex items-center justify-between shadow-inner overflow-hidden">
+          
+          <!-- SVG BEZIER CURVED LINES OVERLAY -->
+          <svg id="svg-chain-overlay" class="absolute inset-0 w-full h-full pointer-events-none z-10">
+            <defs>
+              <marker id="chain-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+              </marker>
+            </defs>
+            <g id="svg-chain-paths"></g>
+          </svg>
+
+          <!-- 5 FIXED SLOT CARDS (0, 1, 2, 3, 4) -->
+          <div class="w-full grid grid-cols-5 gap-2 relative z-20">
+            <!-- SLOT 0 -->
+            <div id="slot-container-0" class="flex flex-col items-center"></div>
+            <!-- SLOT 1 -->
+            <div id="slot-container-1" class="flex flex-col items-center"></div>
+            <!-- SLOT 2 -->
+            <div id="slot-container-2" class="flex flex-col items-center"></div>
+            <!-- SLOT 3 -->
+            <div id="slot-container-3" class="flex flex-col items-center"></div>
+            <!-- SLOT 4 -->
+            <div id="slot-container-4" class="flex flex-col items-center"></div>
+          </div>
+
+        </div>
+
+        <div class="text-[9px] font-bold text-amber-900 text-right">
+          💡 데이터 상자는 가만히 있고 위/아래로 꺾이는 link(next) 곡선 화살표만 교체됩니다!
+        </div>
+      </div>
+
+      <!-- GARBAGE ZONE & POINTER LINK CONTROLLER -->
+      <div class="bg-[#fffbef] rounded-2xl p-2.5 sticker-card flex-1 flex flex-col justify-between min-h-0">
+        
+        <!-- GARBAGE TRACK HEADER -->
+        <div class="flex justify-between items-center mb-1 shrink-0">
+          <span class="text-xs font-jua text-stone-800 bg-stone-200 px-2.5 py-0.5 rounded-lg border border-stone-950">
+            🗑️ 버려진 구역 (Garbage Zone - 비활성화)
+          </span>
+          <span class="text-[10px] font-bold text-stone-600">
+            ※ 링크가 새로 연결된 노드는 [✨ 연결가능] 버튼을 눌러 올리세요.
+          </span>
+        </div>
+
+        <!-- GARBAGE TRACK CONTAINER -->
+        <div id="garbage-track" class="bg-stone-200/70 border-2 border-dashed border-stone-400 rounded-xl p-1.5 min-h-[75px] flex items-center justify-start gap-2 overflow-x-auto shrink-0 mb-1">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <hr class="border-amber-900/20 my-1 shrink-0">
+
+        <!-- LINK DROPDOWN CONTROLLER LIST -->
+        <div class="flex-1 flex flex-col justify-between min-h-0">
+          <div class="flex justify-between items-center mb-1 shrink-0">
+            <span class="text-xs font-jua text-amber-950 bg-purple-200 px-2.5 py-0.5 rounded-lg border border-purple-950">
+              ⚙️ 각 노드의 다음(link) 번호 고치기
+            </span>
+            <span id="controller-lock-status" class="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-400">
+              🔓 수정 가능 상태
+            </span>
+          </div>
+
+          <!-- 5 LINK DROPDOWN ROWS -->
+          <div id="controller-list" class="flex-1 space-y-1 overflow-y-auto pr-1"></div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL NOTIFICATION -->
+  <div id="game-modal" class="hidden fixed inset-0 bg-amber-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div id="modal-card" class="bg-amber-100 border-4 border-amber-950 rounded-3xl p-5 max-w-sm w-full text-center shadow-[6px_6px_0px_#2d2211] space-y-3 animate-bounce-short">
+      <div id="modal-icon" class="text-4xl">🎉</div>
+      <h3 id="modal-title" class="text-lg font-jua text-amber-950">탐험 클리어!</h3>
+      <p id="modal-desc" class="text-xs font-bold text-amber-900 leading-relaxed whitespace-pre-line">
+        장애물을 무사히 우회하여 로봇이 전설의 보물상자에 도착했습니다.
+      </p>
+      <button id="modal-btn" onclick="closeModal()" class="w-full py-2 bg-amber-950 hover:bg-amber-900 text-amber-100 font-jua rounded-xl border-2 border-amber-950 shadow-md text-xs">
+        확인
+      </button>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT GAME LOGIC -->
+  <script>
+    // INITIAL NODE STATES
+    // location: 'top' (Slot in upper chain) or 'bottom' (Garbage Zone)
+    const INITIAL_NODES = [
+      { id: 0, name: "출발지", icon: "🚩", link: -1, location: "top", bg: "bg-amber-200", border: "border-amber-950" },
+      { id: 1, name: "다이아몬드", icon: "💎", link: -1, location: "bottom", bg: "bg-blue-200", border: "border-blue-950" },
+      { id: 2, name: "사파이어", icon: "🔷", link: -1, location: "bottom", bg: "bg-purple-200", border: "border-purple-950" },
+      { id: 3, name: "황금 열쇠", icon: "🌟", link: -1, location: "bottom", bg: "bg-yellow-300", border: "border-amber-950" },
+      { id: 4, name: "보물상자", icon: "👑", link: -1, location: "bottom", bg: "bg-emerald-200", border: "border-emerald-950" }
+    ];
+
+    let nodes = [];
+    let isAnimating = false;
+
+    function resetGame() {
+      nodes = JSON.parse(JSON.stringify(INITIAL_NODES));
+      isAnimating = false;
+
+      const robot = document.getElementById("robot-marker");
+      if (robot) robot.classList.add("hidden");
+
+      updateAllUI();
+    }
+
+    // Get ordered array of node IDs reachable from Head (0)
+    function getReachableChain() {
+      const chain = [];
+      const visited = new Set();
+      let curr = 0;
+
+      while (curr !== -1 && curr !== undefined && curr < nodes.length) {
+        if (visited.has(curr)) break; // Prevent circular loop infinite loop
+        visited.add(curr);
+        chain.push(curr);
+        const node = nodes.find(n => n.id === curr);
+        if (!node) break;
+        curr = node.link;
+      }
+      return chain;
+    }
+
+    function updateAllUI() {
+      const reachable = getReachableChain();
+      const reachableSet = new Set(reachable);
+
+      // 1. Top nodes that lost head connection (Pending Disconnect)
+      const topDisconnectNodes = nodes.filter(n => n.location === 'top' && !reachableSet.has(n.id));
+
+      // 2. Garbage nodes that are now reachable from head (Pending Connect)
+      const bottomConnectableNodes = nodes.filter(n => n.location === 'bottom' && reachableSet.has(n.id));
+
+      const hasPendingActions = topDisconnectNodes.length > 0 || bottomConnectableNodes.length > 0;
+
+      renderTopSlots(reachableSet, topDisconnectNodes);
+      renderGarbageTrack(reachableSet, bottomConnectableNodes);
+      renderController(hasPendingActions);
+      renderMapSVG(reachable);
+      updateMapBadges();
+      updateWarningBar(hasPendingActions, topDisconnectNodes, bottomConnectableNodes);
+      updateCodeDisplay(reachable);
+
+      setTimeout(() => renderChainSVGCurves(reachable), 40);
+    }
+
+    function renderTopSlots(reachableSet, topDisconnectNodes) {
+      for (let i = 0; i <= 4; i++) {
+        const slotContainer = document.getElementById(`slot-container-${i}`);
+        if (!slotContainer) continue;
+        slotContainer.innerHTML = '';
+
+        const node = nodes.find(n => n.id === i);
+        if (!node) continue;
+
+        if (node.location === 'top') {
+          const isReachable = reachableSet.has(node.id);
+          const isDisconnected = topDisconnectNodes.some(n => n.id === node.id);
+
+          let bgClass = "bg-white border-amber-950";
+          if (isDisconnected) {
+            bgClass = "bg-red-50 border-red-500 shake-anim";
+          } else if (isReachable) {
+            bgClass = `${node.bg} ${node.border}`;
+          }
+
+          const card = document.createElement('div');
+          card.id = `top-node-card-${node.id}`;
+          card.className = `w-full ${bgClass} slot-card rounded-xl p-1.5 flex flex-col justify-between text-center relative shadow-sm ${isDisconnected ? 'border-dashed border-2' : 'border-2'}`;
+
+          card.innerHTML = `
+            <div class="bg-amber-300 border-b border-amber-950 text-[10px] font-mono font-black rounded-t-lg py-0.5 text-amber-950">
+              ${node.id}번 노드
+            </div>
+            <div class="py-1 flex flex-col items-center">
+              <span class="text-base">${node.icon}</span>
+              <span class="text-[10px] font-jua text-amber-950 leading-tight truncate">${node.name}</span>
+            </div>
+            <div class="bg-blue-100 border border-blue-300 rounded text-[9px] font-mono font-black text-blue-900 py-0.5">
+              link: ${node.link === -1 ? '-1(끝)' : node.link + '번'}
+            </div>
+          `;
+
+          if (isDisconnected) {
+            const btn = document.createElement('button');
+            btn.className = "mt-1 w-full bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold py-0.5 rounded border border-red-950 shadow animate-bounce-short";
+            btn.innerHTML = `💥 끊어짐 (내리기)`;
+            btn.onclick = () => moveNodeLocation(node.id, 'bottom');
+            card.appendChild(btn);
+          }
+
+          slotContainer.appendChild(card);
+        } else {
+          // Empty slot placeholder
+          const placeholder = document.createElement('div');
+          placeholder.className = "w-full border-2 border-dashed border-amber-900/30 rounded-xl p-2 text-center text-[10px] font-bold text-amber-900/40 min-h-[95px] flex flex-col items-center justify-center bg-amber-50/50";
+          placeholder.innerHTML = `
+            <span class="text-xs opacity-40">🗑️</span>
+            <span>${i}번 노드</span>
+            <span class="text-[8px] opacity-50">(가비지 이동됨)</span>
+          `;
+          slotContainer.appendChild(placeholder);
+        }
+      }
+    }
+
+    function renderGarbageTrack(reachableSet, bottomConnectableNodes) {
+      const container = document.getElementById("garbage-track");
+      container.innerHTML = "";
+
+      const bottomNodes = nodes.filter(n => n.location === 'bottom');
+
+      if (bottomNodes.length === 0) {
+        container.innerHTML = `<span class="text-[10px] text-stone-500 font-bold px-2 py-1">✨ 모든 노드가 상단 체인에 정상 등록되었습니다!</span>`;
+        return;
+      }
+
+      bottomNodes.forEach(node => {
+        const isConnectable = bottomConnectableNodes.some(n => n.id === node.id);
+
+        const card = document.createElement('div');
+        card.className = `shrink-0 w-28 p-1.5 rounded-xl border-2 flex flex-col justify-between text-center relative transition-all ${
+          isConnectable 
+            ? 'bg-emerald-100 border-emerald-600 text-emerald-950 animate-pulse-glow' 
+            : 'bg-stone-300/60 border-dashed border-stone-500 text-stone-600 grayscale'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex justify-between items-center border-b border-stone-400/50 pb-0.5 text-[9px] font-mono font-bold">
+            <span>${node.id}번 노드</span>
+            <span>가비지</span>
+          </div>
+          <div class="py-0.5 flex items-center justify-center gap-1">
+            <span class="text-sm">${node.icon}</span>
+            <span class="text-[10px] font-jua truncate">${node.name}</span>
+          </div>
+          <div class="text-[8px] font-mono font-bold text-stone-700 bg-stone-200/80 rounded py-0.2">
+            link: ${node.link === -1 ? '-1(끝)' : node.link + '번'}
+          </div>
+        `;
+
+        if (isConnectable) {
+          const btn = document.createElement('button');
+          btn.className = "mt-1 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold py-0.5 rounded border border-emerald-950 shadow animate-bounce-short";
+          btn.innerHTML = `✨ 연결가능 (올리기)`;
+          btn.onclick = () => moveNodeLocation(node.id, 'top');
+          card.appendChild(btn);
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function moveNodeLocation(nodeId, targetLocation) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        node.location = targetLocation;
+        updateAllUI();
+      }
+    }
+
+    function renderChainSVGCurves(reachable) {
+      const svgPaths = document.getElementById("svg-chain-paths");
+      if (!svgPaths) return;
+      svgPaths.innerHTML = '';
+
+      const wrapper = document.getElementById("chain-track-wrapper");
+      if (!wrapper) return;
+      const wrapperRect = wrapper.getBoundingClientRect();
+
+      for (let i = 0; i < reachable.length - 1; i++) {
+        const fromId = reachable[i];
+        const toId = reachable[i + 1];
+
+        const fromCard = document.getElementById(`top-node-card-${fromId}`);
+        const toCard = document.getElementById(`top-node-card-${toId}`);
+
+        if (fromCard && toCard) {
+          const r1 = fromCard.getBoundingClientRect();
+          const r2 = toCard.getBoundingClientRect();
+
+          const x1 = r1.left + r1.width / 2 - wrapperRect.left;
+          const x2 = r2.left + r2.width / 2 - wrapperRect.left;
+
+          const isForward = fromId < toId; // Forward jump vs Backward jump
+          const distance = Math.abs(fromId - toId);
+
+          let y1, y2, controlY;
+
+          if (isForward) {
+            // Arch UP above the cards
+            y1 = r1.top - wrapperRect.top + 4;
+            y2 = r2.top - wrapperRect.top + 4;
+            const archHeight = 20 + distance * 18;
+            controlY = Math.min(y1, y2) - archHeight;
+          } else {
+            // Arch DOWN below the cards
+            y1 = r1.bottom - wrapperRect.top - 4;
+            y2 = r2.bottom - wrapperRect.top - 4;
+            const archHeight = 20 + distance * 18;
+            controlY = Math.max(y1, y2) + archHeight;
+          }
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          const d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${controlY} ${x2} ${y2}`;
+          
+          path.setAttribute("d", d);
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", "#2563eb");
+          path.setAttribute("stroke-width", "3");
+          path.setAttribute("marker-end", "url(#chain-arrow)");
+          path.setAttribute("class", "chain-svg-line");
+
+          svgPaths.appendChild(path);
+        }
+      }
+    }
+
+    function renderController(hasPendingActions) {
+      const container = document.getElementById("controller-list");
+      const lockStatus = document.getElementById("controller-lock-status");
+      if (!container || !lockStatus) return;
+
+      container.innerHTML = "";
+
+      if (hasPendingActions) {
+        lockStatus.className = "text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded border border-red-300 animate-pulse";
+        lockStatus.innerText = "🔒 수정 잠김 (노드 위치 정돈 필요)";
+      } else {
+        lockStatus.className = "text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-400";
+        lockStatus.innerText = "🔓 수정 가능 상태";
+      }
+
+      nodes.forEach(node => {
+        const row = document.createElement("div");
+        row.className = `flex items-center justify-between bg-white border border-amber-950/30 rounded-lg p-1 px-2.5 shadow-sm ${
+          hasPendingActions ? "opacity-50 pointer-events-none" : ""
+        }`;
+
+        let optionsHTML = `<option value="-1" ${node.link === -1 ? "selected" : ""}>-1 (끝 / Goal)</option>`;
+        nodes.forEach(target => {
+          if (target.id !== node.id) {
+            optionsHTML += `<option value="${target.id}" ${node.link === target.id ? "selected" : ""}>${target.id}번 (${target.name})</option>`;
+          }
+        });
+
+        row.innerHTML = `
+          <div class="flex items-center gap-1.5">
+            <span class="bg-amber-950 text-yellow-300 font-mono font-black text-[10px] px-1.5 py-0.2 rounded">${node.id}번</span>
+            <span class="text-xs">${node.icon}</span>
+            <span class="font-jua text-xs text-amber-950">${node.name}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-[9px] font-mono font-bold text-purple-900">link:</span>
+            <select onchange="onLinkChange(${node.id}, this.value)" ${hasPendingActions ? "disabled" : ""} class="text-xs font-mono font-bold bg-purple-100 text-purple-950 border border-purple-950 rounded px-1.5 py-0.5 outline-none cursor-pointer">
+              ${optionsHTML}
+            </select>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function onLinkChange(nodeId, val) {
+      const newLink = parseInt(val, 10);
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        node.link = newLink;
+        updateAllUI();
+      }
+    }
+
+    function updateWarningBar(hasPendingActions, topDisconnectNodes, bottomConnectableNodes) {
+      const warningBar = document.getElementById("unreachable-warning-bar");
+      const statusBadge = document.getElementById("chain-status-badge");
+      const msgText = document.getElementById("warning-msg-text");
+
+      if (!warningBar || !statusBadge || !msgText) return;
+
+      if (hasPendingActions) {
+        warningBar.classList.remove("hidden");
+        statusBadge.className = "text-[10px] font-bold text-red-900 bg-red-100 px-2 py-0.5 rounded-lg border border-red-950";
+        statusBadge.innerText = "⚠️ 위치 정돈 필요";
+
+        if (topDisconnectNodes.length > 0 && bottomConnectableNodes.length > 0) {
+          msgText.innerText = "상단의 [💥 끊어짐] 버튼과 하단의 [✨ 연결가능] 버튼을 눌러 위치를 정돈하세요!";
+        } else if (topDisconnectNodes.length > 0) {
+          msgText.innerText = "상단의 [💥 끊어짐] 버튼을 눌러 끊어진 노드를 가비지로 내리세요!";
+        } else {
+          msgText.innerText = "하단 가비지의 [✨ 연결가능] 버튼을 눌러 상단 체인으로 올리세요!";
+        }
+      } else {
+        warningBar.classList.add("hidden");
+        statusBadge.className = "text-[10px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-950";
+        statusBadge.innerText = "상태 정상";
+      }
+    }
+
+    function updateMapBadges() {
+      nodes.forEach(n => {
+        const el = document.getElementById(`map-link-${n.id}`);
+        if (el) {
+          el.innerText = n.link === -1 ? "link: -1" : `link: ${n.link}번`;
+        }
+      });
+    }
+
+    function updateCodeDisplay(reachable) {
+      const display = document.getElementById("code-chain-display");
+      if (!display) return;
+
+      if (reachable.length === 0) {
+        display.textContent = "head ➔ -1";
+        return;
+      }
+
+      const chainStr = reachable.map(id => {
+        const n = nodes.find(item => item.id === id);
+        return `[${n.id}번:${n.name}(link:${n.link})]`;
+      }).join(" ➔ ");
+
+      const lastNode = nodes.find(item => item.id === reachable[reachable.length - 1]);
+      display.textContent = `head(0번) ➔ ${chainStr}${lastNode.link === -1 ? ' ➔ -1' : ''}`;
+    }
+
+    function renderMapSVG(reachable) {
+      const svg = document.getElementById("svg-map-paths");
+      if (!svg) return;
+      svg.innerHTML = '';
+
+      const board = document.getElementById("map-board-wrapper");
+      if (!board) return;
+      const rect = board.getBoundingClientRect();
+
+      for (let i = 0; i < reachable.length - 1; i++) {
+        const fromId = reachable[i];
+        const toId = reachable[i + 1];
+
+        const fromEl = document.getElementById(`map-node-${fromId}`);
+        const toEl = document.getElementById(`map-node-${toId}`);
+
+        if (fromEl && toEl) {
+          const r1 = fromEl.getBoundingClientRect();
+          const r2 = toEl.getBoundingClientRect();
+
+          const x1 = r1.left + r1.width / 2 - rect.left;
+          const y1 = r1.top + r1.height / 2 - rect.top;
+          const x2 = r2.left + r2.width / 2 - rect.left;
+          const y2 = r2.top + r2.height / 2 - rect.top;
+
+          const isBlocked = (fromId === 0 && toId === 4) || (fromId === 1 && toId === 4);
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          path.setAttribute("x1", x1);
+          path.setAttribute("y1", y1);
+          path.setAttribute("x2", x2);
+          path.setAttribute("y2", y2);
+          path.setAttribute("stroke", isBlocked ? "#dc2626" : "#2563eb");
+          path.setAttribute("stroke-width", "3");
+          if (isBlocked) {
+            path.setAttribute("stroke-dasharray", "5,5");
+          }
+          path.setAttribute("marker-end", isBlocked ? "url(#arrow-blocked)" : "url(#arrow-map)");
+
+          svg.appendChild(path);
+        }
+      }
+    }
+
+    function runTraversal() {
+      if (isAnimating) return;
+
+      const reachable = getReachableChain();
+      const topDisconnectNodes = nodes.filter(n => n.location === 'top' && !reachable.includes(n.id));
+      const bottomConnectableNodes = nodes.filter(n => n.location === 'bottom' && reachable.includes(n.id));
+
+      if (topDisconnectNodes.length > 0 || bottomConnectableNodes.length > 0) {
+        showModal("⚠️ 탐험 불가", "노드의 위치 정돈이 끝나지 않았습니다! [💥 끊어짐] 또는 [✨ 연결가능] 버튼을 먼저 누르세요.", "❌", true);
+        return;
+      }
+
+      const robot = document.getElementById("robot-marker");
+      const board = document.getElementById("map-board-wrapper");
+      if (!robot || !board) return;
+
+      const rect = board.getBoundingClientRect();
+
+      robot.classList.remove("hidden");
+      isAnimating = true;
+
+      let step = 0;
+
+      function moveStep() {
+        if (step >= reachable.length) {
+          const lastNodeId = reachable[reachable.length - 1];
+          const lastNode = nodes.find(n => n.id === lastNodeId);
+
+          if (lastNodeId === 4 && lastNode.link === -1 && reachable.length === 5) {
+            showModal("🎉 탐험 미션 클리어!", "축하합니다! 철봉 공식에 따라 장애물(바위, 몬스터)을 피하고 모든 보물(다이아, 사파이어, 황금열쇠)을 수집하여 목적지 [4번 보물상자(link = -1)]에 도달했습니다!", "🏆", false);
+          } else if (lastNodeId === 4 && lastNode.link === -1) {
+            showModal("⚠️ 보물 수집 미완성!", "목적지에는 들어왔지만 일부 보물 노드를 빠뜨렸습니다. 5개 노드를 순서대로 모두 거쳐 가도록 연결을 수정하세요!", "💎", true);
+          } else if (lastNodeId !== 4) {
+            showModal("💥 탐험 실패", "로봇이 목적지(4번 보물상자)에 도착하지 못하고 길 도중에 멈췄습니다. 다음(link) 번호를 고치세요!", "🧱", true);
+          } else {
+            showModal("⚠️ 끝 표시 누락", "4번 노드에 도착했지만 link가 -1(끝)로 설정되지 않아 체인이 끝나지 않았습니다!", "❓", true);
+          }
+
+          isAnimating = false;
+          return;
+        }
+
+        const currId = reachable[step];
+
+        // Obstacle Collision Check
+        if (step > 0) {
+          const prevId = reachable[step - 1];
+          if (prevId === 0 && currId === 4) {
+            showModal("💥 장애물 충돌!", "0번 출발지에서 4번 보물상자로 직접 가다가 [🪨 거대한 바위]에 부딪혔습니다! 1번, 2번, 3번 노드를 경유하도록 우회하세요.", "🪨", true);
+            isAnimating = false;
+            return;
+          }
+          if (prevId === 1 && currId === 4) {
+            showModal("💥 장애물 충돌!", "1번 다이아몬드에서 4번 보물상자로 직접 가다가 [👾 무서운 몬스터]를 만났습니다! 2번과 3번 노드로 우회하세요.", "👾", true);
+            isAnimating = false;
+            return;
+          }
+        }
+
+        const targetEl = document.getElementById(`map-node-${currId}`);
+        if (targetEl) {
+          const r = targetEl.getBoundingClientRect();
+          const x = r.left + r.width / 2 - rect.left;
+          const y = r.top - rect.top - 12;
+
+          robot.style.left = `${x}px`;
+          robot.style.top = `${y}px`;
+        }
+
+        step++;
+        setTimeout(moveStep, 750);
+      }
+
+      moveStep();
+    }
+
+    // Modal Control
+    function showModal(title, desc, icon = "🎉", isError = false) {
+      const card = document.getElementById("modal-card");
+      const modalTitle = document.getElementById("modal-title");
+      const modalDesc = document.getElementById("modal-desc");
+      const modalIcon = document.getElementById("modal-icon");
+
+      if (!card || !modalTitle || !modalDesc || !modalIcon) return;
+
+      modalIcon.textContent = icon;
+      modalTitle.textContent = title;
+      modalDesc.innerText = desc;
+
+      if (isError) {
+        card.className = "bg-red-100 border-4 border-red-600 rounded-3xl p-5 max-w-sm w-full text-center shadow-[6px_6px_0px_#991b1b] space-y-3 animate-shake";
+        modalTitle.className = "text-lg font-jua text-red-950";
+        modalDesc.className = "text-xs font-bold text-red-900 leading-relaxed whitespace-pre-line";
+      } else {
+        card.className = "bg-amber-100 border-4 border-amber-950 rounded-3xl p-5 max-w-sm w-full text-center shadow-[6px_6px_0px_#2d2211] space-y-3 animate-bounce-short";
+        modalTitle.className = "text-lg font-jua text-amber-950";
+        modalDesc.className = "text-xs font-bold text-amber-900 leading-relaxed whitespace-pre-line";
+      }
+
+      document.getElementById("game-modal").classList.remove("hidden");
+    }
+
+    function closeModal() {
+      document.getElementById("game-modal").classList.add("hidden");
+    }
+
+    window.addEventListener('resize', () => {
+      const reachable = getReachableChain();
+      renderMapSVG(reachable);
+      renderChainSVGCurves(reachable);
+    });
+
+    window.onload = resetGame;
+  </script>
+</body>
+</html>
