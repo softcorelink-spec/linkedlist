@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>보물 탐험대 - 연결 리스트 학습 게임</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #fefce8;
+      user-select: none;
+    }
+    .font-jua { font-family: 'Jua', sans-serif; }
+    
+    .shake-anim {
+      animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+  </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col p-3 gap-3">
+
+  <!-- 상단 헤더 -->
+  <header class="bg-amber-100 border-2 border-amber-400 rounded-2xl p-3 flex justify-between items-center shadow-sm shrink-0">
+    <div>
+      <h1 class="text-2xl font-jua text-amber-900 flex items-center gap-2">
+        <span>🏴‍☠️</span> 보물 탐험대: 연결 리스트(Linked List) 시뮬레이터
+      </h1>
+      <p class="text-xs text-amber-800 font-bold mt-0.5">
+        철봉 공식: [1단계] 먼저 잡고(link 설정) ➔ [2단계] 나중에 놓는다(이전 link 변경) ➔ [3단계] 버튼으로 위치 정돈
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="resetGame()" class="bg-amber-500 hover:bg-amber-600 text-white font-jua px-4 py-2 rounded-xl border-b-4 border-amber-700 active:translate-y-0.5 shadow transition">
+        🔄 처음 상태로 초기화
+      </button>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main class="flex-1 grid grid-cols-12 gap-3 min-h-0">
+
+    <!-- [좌측 5칸] 미로 탐험 지도 -->
+    <section class="col-span-5 bg-emerald-50 border-3 border-emerald-300 rounded-2xl p-3 flex flex-col shadow-inner relative overflow-hidden">
+      <div class="flex justify-between items-center mb-2 shrink-0">
+        <h2 class="font-jua text-lg text-emerald-900 flex items-center gap-1.5">
+          <span>🗺️</span> 보물 탐험 미로 지도
+        </h2>
+        <span class="text-xs bg-emerald-200 text-emerald-800 px-2 py-1 rounded-full font-bold">
+          목적지: 4번 노드 (link = -1)
+        </span>
+      </div>
+
+      <!-- 지도 캔버스 / 거점 노드 배치 영역 -->
+      <div id="map-container" class="flex-1 bg-emerald-100/60 border-2 border-dashed border-emerald-300 rounded-xl relative p-4 flex flex-col justify-between">
+        
+        <!-- SVG 경로선 그리기 레이어 -->
+        <svg id="map-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+            </marker>
+            <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626" />
+            </marker>
+          </defs>
+        </svg>
+
+        <!-- 거점 노드 5개 (위치 고정) -->
+        <div class="grid grid-cols-3 gap-3 h-full relative z-10">
+          
+          <!-- Row 1: 0번 (출발) -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div id="map-node-0" class="bg-white border-2 border-amber-500 rounded-xl p-2 shadow text-center w-full relative">
+              <span class="absolute -top-3 left-2 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">0번 노드</span>
+              <div class="text-xl">🚩</div>
+              <div class="font-jua text-xs text-gray-800 mt-0.5">출발지</div>
+              <div class="text-[10px] text-blue-600 font-mono mt-0.5" id="map-link-0">link: -1</div>
+            </div>
+          </div>
+
+          <!-- 1번 (다이아) -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div id="map-node-1" class="bg-white border-2 border-blue-400 rounded-xl p-2 shadow text-center w-full relative">
+              <span class="absolute -top-3 left-2 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">1번 노드</span>
+              <div class="text-xl">💎</div>
+              <div class="font-jua text-xs text-gray-800 mt-0.5">다이아몬드</div>
+              <div class="text-[10px] text-blue-600 font-mono mt-0.5" id="map-link-1">link: -1</div>
+            </div>
+          </div>
+
+          <!-- 장애물 1 -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div class="bg-red-100 border-2 border-red-300 rounded-xl p-1.5 text-center shadow-sm">
+              <div class="text-2xl animate-bounce">🪨</div>
+              <div class="text-[10px] font-bold text-red-700">거대한 바위</div>
+            </div>
+          </div>
+
+          <!-- Row 2: 3번 (황금열쇠) -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div id="map-node-3" class="bg-white border-2 border-yellow-400 rounded-xl p-2 shadow text-center w-full relative">
+              <span class="absolute -top-3 left-2 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">3번 노드</span>
+              <div class="text-xl">🌟</div>
+              <div class="font-jua text-xs text-gray-800 mt-0.5">황금 열쇠</div>
+              <div class="text-[10px] text-blue-600 font-mono mt-0.5" id="map-link-3">link: -1</div>
+            </div>
+          </div>
+
+          <!-- 장애물 2 -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div class="bg-red-100 border-2 border-red-300 rounded-xl p-1.5 text-center shadow-sm">
+              <div class="text-2xl animate-pulse">👾</div>
+              <div class="text-[10px] font-bold text-red-700">무서운 몬스터</div>
+            </div>
+          </div>
+
+          <!-- 2번 (사파이어) -->
+          <div class="col-span-1 flex items-center justify-center">
+            <div id="map-node-2" class="bg-white border-2 border-indigo-400 rounded-xl p-2 shadow text-center w-full relative">
+              <span class="absolute -top-3 left-2 bg-indigo-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">2번 노드</span>
+              <div class="text-xl">🔷</div>
+              <div class="font-jua text-xs text-gray-800 mt-0.5">사파이어</div>
+              <div class="text-[10px] text-blue-600 font-mono mt-0.5" id="map-link-2">link: -1</div>
+            </div>
+          </div>
+
+          <!-- Row 3: 4번 (목적지 / 보물상자) -->
+          <div class="col-span-3 flex items-center justify-center pt-2">
+            <div id="map-node-4" class="bg-amber-200 border-2 border-amber-600 rounded-xl p-2 shadow text-center w-48 relative">
+              <span class="absolute -top-3 left-2 bg-amber-700 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">4번 노드 (Goal)</span>
+              <div class="text-2xl">👑</div>
+              <div class="font-jua text-xs text-amber-950">전설의 보물상자</div>
+              <div class="text-[10px] text-amber-900 font-mono mt-0.5" id="map-link-4">link: -1</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 탐험 로봇 캐릭터 마커 -->
+        <div id="robot-marker" class="absolute z-20 transition-all duration-500 ease-in-out transform -translate-x-1/2 -translate-y-1/2 pointer-events-none hidden">
+          <div class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap animate-bounce flex items-center gap-1">
+            <span>🤖</span> 탐험 로봇
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 경로 실행 버튼 -->
+      <button onclick="runTraversal()" class="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-jua text-lg py-2 rounded-xl border-b-4 border-emerald-800 active:translate-y-0.5 shadow transition flex items-center justify-center gap-2 shrink-0">
+        <span>▶️</span> 연결 리스트 경로 탐험 실행하기
+      </button>
+    </section>
+
+    <!-- [우측 7칸] 실시간 체인 & 제어 컨트롤러 -->
+    <section class="col-span-7 flex flex-col gap-3 min-h-0">
+
+      <!-- 1. 상단: 실시간 순서 체인 (Linked List Chain) -->
+      <div class="bg-amber-50 border-3 border-amber-300 rounded-2xl p-3 flex flex-col shadow-sm relative shrink-0">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-jua text-base text-amber-950 flex items-center gap-1.5">
+            <span>🔗</span> 실시간 순서 체인 (Real-Time Chain)
+          </h2>
+          <span id="chain-status-badge" class="text-xs px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800">
+            상태 정상
+          </span>
+        </div>
+
+        <!-- 연결된 노드들 (상단 트랙) -->
+        <div class="bg-white/80 border-2 border-amber-200 rounded-xl p-3 min-h-[125px] flex items-center gap-2 overflow-x-auto" id="upper-chain-track">
+          <!-- JS로 동적 생성됨 -->
+        </div>
+
+        <!-- 끊어진 노드 안내 경고 바 -->
+        <div id="unreachable-warning-bar" class="hidden mt-2 bg-red-100 border border-red-400 text-red-800 text-xs px-3 py-1.5 rounded-lg flex justify-between items-center animate-pulse">
+          <span class="font-bold flex items-center gap-1">
+            <span>⚠️</span> <span id="warning-msg-text">노드 위치 정돈이 필요합니다.</span>
+          </span>
+          <span class="text-[10px] bg-red-200 text-red-900 px-2 py-0.5 rounded font-bold">
+            버튼을 눌러 노드를 정돈하세요 ⬇️
+          </span>
+        </div>
+      </div>
+
+      <!-- 2. 하단: 버려진 구역 (Garbage Zone) & 하단 링크 제어 컨트롤러 -->
+      <div class="flex-1 bg-stone-100 border-3 border-stone-300 rounded-2xl p-3 flex flex-col min-h-0 shadow-inner">
+        
+        <!-- 가비지 구역 제목 -->
+        <div class="flex justify-between items-center mb-1.5 shrink-0">
+          <h3 class="font-jua text-sm text-stone-700 flex items-center gap-1">
+            <span>🗑️</span> 버려진 구역 (Garbage Zone - 비활성화)
+          </h3>
+          <span class="text-[11px] text-stone-500 font-bold">
+            ※ 링크가 새로 연결된 노드는 [✨ 연결가능] 버튼을 눌러 올리세요.
+          </span>
+        </div>
+
+        <!-- 가비지 노드 트랙 -->
+        <div id="garbage-track" class="bg-stone-200/70 border-2 border-dashed border-stone-300 rounded-xl p-2 min-h-[90px] flex items-center gap-2 overflow-x-auto shrink-0 mb-3">
+          <!-- JS로 동적 생성됨 -->
+        </div>
+
+        <hr class="border-stone-300 my-1 shrink-0">
+
+        <!-- 하단 다음 노드 지정 컨트롤러 -->
+        <div class="flex-1 flex flex-col justify-between min-h-0 pt-1">
+          <div class="flex justify-between items-center mb-1">
+            <h4 class="font-jua text-xs text-stone-800">
+              ⚙️ 각 노드의 다음(link) 번호 고치기
+            </h4>
+            <span id="controller-lock-status" class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+              🔓 수정 가능 상태
+            </span>
+          </div>
+
+          <div id="controller-list" class="space-y-1.5 overflow-y-auto pr-1">
+            <!-- JS로 각 노드의 드롭다운 행 동적 생성 -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 모달 팝업 -->
+  <div id="modal-overlay" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+    <div id="modal-card" class="bg-white border-4 border-amber-400 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center transform transition-all scale-95">
+      <div id="modal-icon" class="text-5xl mb-2">🎉</div>
+      <h3 id="modal-title" class="font-jua text-2xl text-gray-900 mb-2">탐험 성공!</h3>
+      <p id="modal-body" class="text-sm text-gray-700 mb-5 leading-relaxed font-medium">
+        성공 메시지 내용
+      </p>
+      <button onclick="closeModal()" class="bg-amber-500 hover:bg-amber-600 text-white font-jua px-6 py-2.5 rounded-xl border-b-4 border-amber-700 active:translate-y-0.5 shadow transition">
+        확인
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 초기 노드 상태 정의 (0번만 상단 연결, 나머지 1~4번은 모두 하단 가비지 대기)
+    const initialNodes = [
+      { id: 0, name: "출발지", icon: "🚩", link: -1, location: "top" },
+      { id: 1, name: "다이아몬드", icon: "💎", link: -1, location: "bottom" },
+      { id: 2, name: "사파이어", icon: "🔷", link: -1, location: "bottom" },
+      { id: 3, name: "황금 열쇠", icon: "🌟", link: -1, location: "bottom" },
+      { id: 4, name: "보물상자", icon: "👑", link: -1, location: "bottom" }
+    ];
+
+    let nodes = [];
+
+    function resetGame() {
+      nodes = JSON.parse(JSON.stringify(initialNodes));
+      updateAllUI();
+    }
+
+    // head(0)에서 시작하여 도달 가능한 노드 순서 배열 반환
+    function getReachableChain() {
+      const chain = [];
+      const visited = new Set();
+      let curr = 0;
+
+      while (curr !== -1 && curr !== undefined && curr < nodes.length) {
+        if (visited.has(curr)) break; // 순환 참조 방지
+        visited.add(curr);
+        chain.push(curr);
+        const node = nodes.find(n => n.id === curr);
+        if (!node) break;
+        curr = node.link;
+      }
+      return chain;
+    }
+
+    // 전체 상태 계산 및 UI 렌더링
+    function updateAllUI() {
+      const reachable = getReachableChain();
+      const reachableSet = new Set(reachable);
+
+      // 1. 상단 체인에 위치한 노드 중 head에서 도달 불가능해진 노드 (끊어짐 버튼 대상)
+      const topDisconnectNodes = nodes.filter(n => n.location === 'top' && !reachableSet.has(n.id));
+
+      // 2. 하단 가비지에 위치한 노드 중 head에서 도달 가능해진 노드 (연결가능 버튼 대상)
+      const bottomConnectableNodes = nodes.filter(n => n.location === 'bottom' && reachableSet.has(n.id));
+
+      const hasPendingActions = topDisconnectNodes.length > 0 || bottomConnectableNodes.length > 0;
+
+      renderUpperChain(reachable, topDisconnectNodes);
+      renderGarbageTrack(reachableSet, bottomConnectableNodes);
+      renderController(hasPendingActions);
+      renderMapSVG(reachable);
+      updateMapBadges();
+      updateWarningBar(hasPendingActions, topDisconnectNodes, bottomConnectableNodes);
+    }
+
+    // 1. 상단 실시간 체인 렌더링
+    function renderUpperChain(reachable, topDisconnectNodes) {
+      const container = document.getElementById("upper-chain-track");
+      container.innerHTML = "";
+
+      const orderedTopIds = reachable.filter(id => {
+        const node = nodes.find(n => n.id === id);
+        return node && node.location === 'top';
+      });
+
+      topDisconnectNodes.forEach(n => {
+        if (!orderedTopIds.includes(n.id)) {
+          orderedTopIds.push(n.id);
+        }
+      });
+
+      orderedTopIds.forEach((id, idx) => {
+        const node = nodes.find(n => n.id === id);
+        const isReachable = reachable.includes(id);
+        const isDisconnectedPending = topDisconnectNodes.some(n => n.id === id);
+
+        const card = createNodeCardHTML(node, isReachable, isDisconnectedPending, false);
+        container.appendChild(card);
+
+        // 화살표 표시
+        if (idx < orderedTopIds.length - 1 && isReachable && !isDisconnectedPending) {
+          const arrow = document.createElement("div");
+          arrow.className = "text-blue-500 font-bold text-xl px-1 shrink-0";
+          arrow.innerText = "➔";
+          container.appendChild(arrow);
+        }
+      });
+    }
+
+    // 2. 하단 가비지 트랙 렌더링
+    function renderGarbageTrack(reachableSet, bottomConnectableNodes) {
+      const container = document.getElementById("garbage-track");
+      container.innerHTML = "";
+
+      const bottomNodes = nodes.filter(n => n.location === 'bottom');
+
+      if (bottomNodes.length === 0) {
+        container.innerHTML = `<span class="text-xs text-stone-400 font-medium">가비지 구역이 비어있습니다.</span>`;
+        return;
+      }
+
+      bottomNodes.forEach(node => {
+        const isConnectablePending = bottomConnectableNodes.some(n => n.id === node.id);
+        const card = createNodeCardHTML(node, false, false, isConnectablePending);
+        container.appendChild(card);
+      });
+    }
+
+    // 공통 노드 카드 생성 함수
+    function createNodeCardHTML(node, isActive, isDisconnectedPending, isConnectablePending) {
+      const wrapper = document.createElement("div");
+      
+      let bgStyle = "bg-white border-amber-400 text-gray-900";
+      if (isDisconnectedPending) {
+        bgStyle = "bg-red-50 border-red-400 text-red-900 shake-anim";
+      } else if (isConnectablePending) {
+        bgStyle = "bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-400 animate-pulse";
+      } else if (!isActive && node.location === 'bottom') {
+        bgStyle = "bg-stone-200 border-dashed border-stone-400 text-stone-500 grayscale";
+      }
+
+      wrapper.className = `shrink-0 w-36 rounded-xl border-2 p-2 shadow-sm transition-all ${bgStyle} relative flex flex-col justify-between`;
+
+      const linkText = node.link === -1 ? "-1 (끝)" : `${node.link}번`;
+
+      wrapper.innerHTML = `
+        <div>
+          <div class="flex justify-between items-center border-b border-stone-200/60 pb-1 mb-1">
+            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded ${
+              isActive ? "bg-amber-100 text-amber-800" : "bg-stone-300 text-stone-700"
+            }">${node.id}번 노드</span>
+            <span class="text-[10px] font-mono font-bold">${node.location === 'top' ? "상단" : "가비지"}</span>
+          </div>
+          <div class="flex items-center gap-1.5 my-1">
+            <span class="text-xl">${node.icon}</span>
+            <span class="font-jua text-xs truncate">${node.name}</span>
+          </div>
+          <div class="mt-1 pt-1 border-t border-stone-100 flex justify-between items-center text-[10px]">
+            <span class="text-stone-500">link:</span>
+            <span class="font-bold font-mono ${isActive ? "text-blue-600" : "text-stone-500"}">${linkText}</span>
+          </div>
+        </div>
+      `;
+
+      // 1. [💥 끊어짐 (가비지로 내리기)] 버튼 생성
+      if (isDisconnectedPending) {
+        const btn = document.createElement("button");
+        btn.className = "mt-1.5 w-full bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold py-1 rounded shadow transition flex items-center justify-center gap-1";
+        btn.innerHTML = `<span>💥</span> 끊어짐 (내리기)`;
+        btn.onclick = () => moveNodeLocation(node.id, 'bottom');
+        wrapper.appendChild(btn);
+      }
+
+      // 2. [✨ 연결가능 (상단으로 올리기)] 버튼 생성
+      if (isConnectablePending) {
+        const btn = document.createElement("button");
+        btn.className = "mt-1.5 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold py-1 rounded shadow transition flex items-center justify-center gap-1";
+        btn.innerHTML = `<span>✨</span> 연결가능 (올리기)`;
+        btn.onclick = () => moveNodeLocation(node.id, 'top');
+        wrapper.appendChild(btn);
+      }
+
+      return wrapper;
+    }
+
+    // 노드 위치 변경 (상단 <-> 하단 가비지)
+    function moveNodeLocation(nodeId, targetLocation) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        node.location = targetLocation;
+        updateAllUI();
+      }
+    }
+
+    // 3. 하단 컨트롤러 렌더링
+    function renderController(hasPendingActions) {
+      const container = document.getElementById("controller-list");
+      const lockStatus = document.getElementById("controller-lock-status");
+      container.innerHTML = "";
+
+      if (hasPendingActions) {
+        lockStatus.className = "text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded animate-pulse";
+        lockStatus.innerText = "🔒 수정 잠김 (노드 정돈 필요)";
+      } else {
+        lockStatus.className = "text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded";
+        lockStatus.innerText = "🔓 수정 가능 상태";
+      }
+
+      nodes.forEach(node => {
+        const row = document.createElement("div");
+        row.className = `flex items-center justify-between bg-white border border-stone-200 rounded-lg p-1.5 px-3 shadow-sm ${
+          hasPendingActions ? "opacity-60 pointer-events-none" : ""
+        }`;
+
+        let optionsHTML = `<option value="-1" ${node.link === -1 ? "selected" : ""}>-1 (끝 / Goal)</option>`;
+        nodes.forEach(target => {
+          if (target.id !== node.id) {
+            optionsHTML += `<option value="${target.id}" ${node.link === target.id ? "selected" : ""}>${target.id}번 노드 (${target.name})</option>`;
+          }
+        });
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">${node.id}번</span>
+            <span class="text-sm">${node.icon}</span>
+            <span class="font-jua text-xs text-stone-800">${node.name}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] font-bold text-stone-400">link(next):</span>
+            <select onchange="onLinkChange(${node.id}, this.value)" ${hasPendingActions ? "disabled" : ""} class="text-xs font-bold font-mono border border-stone-300 rounded px-2 py-1 bg-amber-50 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400">
+              ${optionsHTML}
+            </select>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // 링크 변경 처리
+    function onLinkChange(nodeId, val) {
+      const newLink = parseInt(val, 10);
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        node.link = newLink;
+        updateAllUI();
+      }
+    }
+
+    // 상단 경고 바 업데이트
+    function updateWarningBar(hasPendingActions, topDisconnectNodes, bottomConnectableNodes) {
+      const warningBar = document.getElementById("unreachable-warning-bar");
+      const statusBadge = document.getElementById("chain-status-badge");
+      const msgText = document.getElementById("warning-msg-text");
+
+      if (hasPendingActions) {
+        warningBar.classList.remove("hidden");
+        statusBadge.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-800";
+        statusBadge.innerText = "⚠️ 정돈 필요";
+
+        if (topDisconnectNodes.length > 0 && bottomConnectableNodes.length > 0) {
+          msgText.innerText = "상단의 [💥 끊어짐] 버튼과 하단의 [✨ 연결가능] 버튼을 눌러 정돈하세요!";
+        } else if (topDisconnectNodes.length > 0) {
+          msgText.innerText = "상단의 [💥 끊어짐] 버튼을 눌러 끊어진 노드를 하단 가비지로 내리세요!";
+        } else {
+          msgText.innerText = "하단 가비지의 [✨ 연결가능] 버튼을 눌러 상단 체인으로 올리세요!";
+        }
+      } else {
+        warningBar.classList.add("hidden");
+        statusBadge.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800";
+        statusBadge.innerText = "상태 정상";
+      }
+    }
+
+    // 지도 UI 상의 link 배지 업데이트
+    function updateMapBadges() {
+      nodes.forEach(n => {
+        const el = document.getElementById(`map-link-${n.id}`);
+        if (el) {
+          el.innerText = n.link === -1 ? "link: -1 (끝)" : `link: ${n.link}번`;
+        }
+      });
+    }
+
+    // 지도 SVG 경로선 그리기
+    function renderMapSVG(reachable) {
+      const svg = document.getElementById("map-svg");
+      const existingPaths = svg.querySelectorAll("path");
+      existingPaths.forEach(p => p.remove());
+
+      const containerRect = document.getElementById("map-container").getBoundingClientRect();
+
+      for (let i = 0; i < reachable.length - 1; i++) {
+        const fromId = reachable[i];
+        const toId = reachable[i + 1];
+
+        const fromEl = document.getElementById(`map-node-${fromId}`);
+        const toEl = document.getElementById(`map-node-${toId}`);
+
+        if (fromEl && toEl) {
+          const r1 = fromEl.getBoundingClientRect();
+          const r2 = toEl.getBoundingClientRect();
+
+          const x1 = r1.left + r1.width / 2 - containerRect.left;
+          const y1 = r1.top + r1.height / 2 - containerRect.top;
+          const x2 = r2.left + r2.width / 2 - containerRect.left;
+          const y2 = r2.top + r2.height / 2 - containerRect.top;
+
+          // 지도 상에서 장애물에 직면하는 경로 판정 (0->4 직선, 1->4 직선)
+          const isBlocked = (fromId === 0 && toId === 4) || (fromId === 1 && toId === 4);
+
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
+          path.setAttribute("stroke", isBlocked ? "#dc2626" : "#2563eb");
+          path.setAttribute("stroke-width", "3");
+          path.setAttribute("stroke-dasharray", isBlocked ? "5,5" : "none");
+          path.setAttribute("marker-end", isBlocked ? "url(#arrow-red)" : "url(#arrow)");
+          svg.appendChild(path);
+        }
+      }
+    }
+
+    // 탐험 경로 실시간 이동 실행
+    function runTraversal() {
+      const reachable = getReachableChain();
+      const topDisconnectNodes = nodes.filter(n => n.location === 'top' && !reachable.includes(n.id));
+      const bottomConnectableNodes = nodes.filter(n => n.location === 'bottom' && reachable.includes(n.id));
+
+      if (topDisconnectNodes.length > 0 || bottomConnectableNodes.length > 0) {
+        showModal("⚠️ 탐험 불가", "노드의 위치 정돈이 끝나지 않았습니다! [💥 끊어짐] 또는 [✨ 연결가능] 버튼을 먼저 누르세요.", "❌");
+        return;
+      }
+
+      const robot = document.getElementById("robot-marker");
+      const containerRect = document.getElementById("map-container").getBoundingClientRect();
+
+      robot.classList.remove("hidden");
+      let step = 0;
+
+      function moveStep() {
+        if (step >= reachable.length) {
+          const lastNodeId = reachable[reachable.length - 1];
+          const lastNode = nodes.find(n => n.id === lastNodeId);
+
+          if (lastNodeId === 4 && lastNode.link === -1) {
+            showModal("🎉 탐험 미션 성공!", "축하합니다! 로봇이 장애물을 완벽히 피하여 목적지인 [4번 보물상자 (link = -1)]에 도달했습니다!", "👑");
+          } else if (lastNodeId !== 4) {
+            showModal("💥 탐험 실패", "로봇이 목적지(4번 보물상자)에 도착하지 못했습니다. 연결 리스트의 다음(link) 번호를 고치세요!", "🧱");
+          } else {
+            showModal("⚠️ 끝 표시 누락", "4번 노드에 도착했지만 link가 -1(끝)로 설정되지 않았습니다!", "❓");
+          }
+          return;
+        }
+
+        const currId = reachable[step];
+
+        // 장애물 충돌 검사
+        if (step > 0) {
+          const prevId = reachable[step - 1];
+          if (prevId === 0 && currId === 4) {
+            showModal("💥 장애물 충돌!", "0번 출발지에서 4번 보물상자로 직접 가다가 [🪨 거대한 바위]에 부딪혓습니다! 보물 노드들을 경유하도록 우회하세요.", "🪨");
+            return;
+          }
+          if (prevId === 1 && currId === 4) {
+            showModal("💥 장애물 충돌!", "1번 다이아몬드에서 4번 보물상자로 직접 가다가 [👾 무서운 몬스터]를 만났습니다! 3번/2번 노드로 우회하세요.", "👾");
+            return;
+          }
+        }
+
+        const targetEl = document.getElementById(`map-node-${currId}`);
+        if (targetEl) {
+          const r = targetEl.getBoundingClientRect();
+          const x = r.left + r.width / 2 - containerRect.left;
+          const y = r.top - containerRect.top - 15;
+
+          robot.style.left = `${x}px`;
+          robot.style.top = `${y}px`;
+        }
+
+        step++;
+        setTimeout(moveStep, 800);
+      }
+
+      moveStep();
+    }
+
+    // 모달 제어
+    function showModal(title, body, icon) {
+      document.getElementById("modal-title").innerText = title;
+      document.getElementById("modal-body").innerText = body;
+      document.getElementById("modal-icon").innerText = icon;
+      document.getElementById("modal-overlay").classList.remove("hidden");
+    }
+
+    function closeModal() {
+      document.getElementById("modal-overlay").classList.add("hidden");
+    }
+
+    // 페이지 로드 시 시작
+    window.onload = resetGame;
+  </script>
+</body>
+</html>
